@@ -1,0 +1,63 @@
+name: Sync wxWidgets Master
+
+on:
+  schedule:
+    - cron: '0 6 * * 6'  # Saturday 6am UTC
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (no commit/push)'
+        type: boolean
+        default: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout kwxFetch
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Clone wxWidgets (shallow + submodules)
+        run: |
+          git clone --depth 1 --recurse-submodules --shallow-submodules \
+            https://github.com/wxWidgets/wxWidgets.git /tmp/wxWidgets
+
+      - name: Run sync script
+        run: python maintain/sync_wxwidgets.py --source /tmp/wxWidgets --dest .
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libgl1-mesa-dev
+
+      - name: Configure wxWidgets
+        run: |
+          cmake -B build -S . -G Ninja \
+            -DwxBUILD_SHARED=OFF \
+            -DwxBUILD_SAMPLES=OFF \
+            -DwxBUILD_TESTS=OFF \
+            -DwxBUILD_DEMOS=OFF \
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build wxWidgets core
+        run: ninja -C build wxbase wxcore
+
+      - name: Commit and push
+        if: ${{ !inputs.dry_run }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add -A
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Sync from wxWidgets master $(date +%Y-%m-%d)"
+            git push
+          fi
