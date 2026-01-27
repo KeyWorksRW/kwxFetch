@@ -76,6 +76,7 @@ ALLOW_SPECIFIC_PATHS: Set[str] = {
     "src/jpeg",
     "src/png",
     "src/tiff",
+    "src/unix/protocols",  # Wayland protocol XML files for GTK builds
     "src/zlib",
     "3rdparty/libwebp",
     "3rdparty/pcre",
@@ -110,6 +111,7 @@ ALLOWED_NEW_EXTENSIONS: Set[str] = {
     ".cpp", ".cxx", ".cc", ".c", ".h", ".hpp", ".hxx", ".hh", ".mm", ".cmake",
     ".inc",  # Include files
     ".xpm",  # X pixmap images (used by wxWidgets)
+    ".xml",  # Wayland protocol definitions (src/unix/protocols)
 }
 
 
