@@ -98,6 +98,12 @@ EXCEPTION_EXTENSIONS: Set[tuple] = {
     ("src/zlib", ".in"),
 }
 
+# Specific .in files at the root level that must be included
+ROOT_EXCEPTION_FILES: Set[str] = {
+    "wx-config.in",
+    "version-script.in",
+}
+
 # Extensions allowed for new files (files that don't exist in dest)
 ALLOWED_NEW_EXTENSIONS: Set[str] = {
     ".cpp", ".cxx", ".cc", ".c", ".h", ".hpp", ".hxx", ".hh", ".mm", ".cmake",
@@ -163,6 +169,10 @@ def should_include_file(rel_path: str, dest_exists: bool) -> tuple[bool, str]:
     # Check exact-path exception files FIRST (they override all exclusions)
     if rel_path in EXCEPTION_FILES:
         return True, "exception (exact path)"
+
+    # Check root-level .in exception files
+    if filename in ROOT_EXCEPTION_FILES and "/" not in rel_path:
+        return True, "root exception file"
 
     # Check ignored folders (but respect ALLOW_SPECIFIC_PATHS)
     if is_in_ignored_folder(rel_path):
