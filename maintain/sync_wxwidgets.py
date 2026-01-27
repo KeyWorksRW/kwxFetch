@@ -102,6 +102,7 @@ EXCEPTION_EXTENSIONS: Set[tuple] = {
 ROOT_EXCEPTION_FILES: Set[str] = {
     "wx-config.in",
     "version-script.in",
+    "wx-config-inplace.in",
 }
 
 # Extensions allowed for new files (files that don't exist in dest)
