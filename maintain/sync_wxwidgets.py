@@ -64,6 +64,7 @@ IGNORE_EXTENSIONS: Set[str] = {
 EXCEPTION_FILES: Set[str] = {
     "build/bakefiles/version.bkl",
     "CMakeLists.txt",
+    "include/wx/osx/iphone/chkconf.h",
 }
 
 # Paths where folder name exclusions should NOT apply
