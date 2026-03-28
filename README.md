@@ -12,21 +12,41 @@ wxWidgets contains ~9,500 files across 666 folders (~156 MB). This repository re
 
 Submodules are pre-inlined, eliminating the need for recursive submodule fetches.
 
+## Releases
+
+Two release archives are published automatically each Saturday as `.tar.xz` files.
+CMake 3.15+ decompresses `.tar.xz` natively on Windows, Linux, and macOS — no system tools required.
+
+| Release tag | Tracks | Rebuild |   |
+|---|---|---|---|
+| `wx-3.2-latest` | wxWidgets `3.2` branch (stable) | Only when `wxRELEASE_NUMBER` increments | ~6-month cadence |
+| `wx-dev-latest` | wxWidgets `master` branch | Every Saturday | Bleeding edge |
+
 ## Usage
+
+Replace `KeyWorksRW` with your actual org/username if forked.
+
+### Stable (3.2.x)
 
 ```cmake
 FetchContent_Declare(
     wxWidgets
-    GIT_REPOSITORY "https://github.com/KeyWorksRW/kwxFetch.git"
-    GIT_SHALLOW TRUE
+    URL https://github.com/KeyWorksRW/kwxFetch/releases/download/wx-3.2-latest/kwxFetch-source.tar.xz
 )
 
 FetchContent_MakeAvailable(wxWidgets)
 ```
 
-## Branches
+### Bleeding Edge (master)
 
-- **dev** — Tracks wxWidgets master, updated weekly (Saturday mornings UTC)
+```cmake
+FetchContent_Declare(
+    wxWidgets
+    URL https://github.com/KeyWorksRW/kwxFetch/releases/download/wx-dev-latest/kwxFetch-source.tar.xz
+)
+
+FetchContent_MakeAvailable(wxWidgets)
+```
 
 ## For KeyWorks Projects
 
@@ -36,10 +56,6 @@ This repository is used by:
 
 And the kwx language binding projects (kwxFortran, kwxGO, kwxJulia, etc.)
 
-## Note
-
-If you need wxWidgets releases (3.2.x stable), consider fetching directly from the [wxWidgets repository](https://github.com/wxWidgets/wxWidgets) using a release tag. This repository tracks development builds.
-
 ## License
 
-wxWidgets is distributed under the [wxWindows Library Licence](https://www.wxwidgets.org/about/licence/). See the wxWidgets [README](maintain/wxReadMe.md) for details.
+wxWidgets is distributed under the [wxWindows Library Licence](https://www.wxwidgets.org/about/licence/).
