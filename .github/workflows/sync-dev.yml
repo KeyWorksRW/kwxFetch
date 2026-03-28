@@ -1,43 +1,83 @@
-name: Sync wxWidgets Master
+name: Weekly wxWidgets Sync
 
 on:
   schedule:
     - cron: '0 8 * * 6'  # Saturday 8am UTC
   workflow_dispatch:
-    inputs:
-      dry_run:
-        description: 'Dry run (no commit/push)'
-        type: boolean
-        default: false
 
 jobs:
   sync:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: stable
+            wx_branch: "3.2"
+            release_tag: "wx-3.2-latest"
+            always_build: false
+
+          - name: dev
+            wx_branch: "master"
+            release_tag: "wx-dev-latest"
+            always_build: true
+
     steps:
+      - name: Get upstream version
+        id: upstream
+        run: |
+          VERSION=$(curl -sS "https://raw.githubusercontent.com/wxWidgets/wxWidgets/${{ matrix.wx_branch }}/include/wx/version.h" \
+            | grep -E '#define wx(MAJOR_VERSION|MINOR_VERSION|RELEASE_NUMBER) ' \
+            | awk '{print $3}' | paste -sd '.')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Upstream ${{ matrix.name }}: $VERSION"
+
+      - name: Check if rebuild needed
+        id: check
+        run: |
+          CURRENT=$(gh release view "${{ matrix.release_tag }}" --json body -q '.body' 2>/dev/null \
+            | grep -oP 'version=\K[\d.]+' || echo "none")
+          echo "Published version: $CURRENT"
+
+          if [[ "${{ matrix.always_build }}" == "false" && "$CURRENT" == "${{ steps.upstream.outputs.version }}" ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Skipping ${{ matrix.name }}: version $CURRENT unchanged"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "Building ${{ matrix.name }}: $CURRENT -> ${{ steps.upstream.outputs.version }}"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Checkout kwxFetch
+        if: steps.check.outputs.skip != 'true'
         uses: actions/checkout@v4
-        with:
-          ref: dev
 
       - name: Setup Python
+        if: steps.check.outputs.skip != 'true'
         uses: actions/setup-python@v5
 
       - name: Clone wxWidgets (shallow + submodules)
+        if: steps.check.outputs.skip != 'true'
         run: |
           git clone --depth 1 --recurse-submodules --shallow-submodules \
+            -b ${{ matrix.wx_branch }} \
             https://github.com/wxWidgets/wxWidgets.git /tmp/wxWidgets
 
       - name: Run sync script
+        if: steps.check.outputs.skip != 'true'
         run: python maintain/sync_wxwidgets.py --source /tmp/wxWidgets --dest .
 
       - name: Install build dependencies
+        if: steps.check.outputs.skip != 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libgl1-mesa-dev
 
       - name: Configure wxWidgets
+        if: steps.check.outputs.skip != 'true'
         run: |
-          cmake -B build -S . -G Ninja \
+          cmake -B /tmp/wxbuild -S . -G Ninja \
             -DwxBUILD_SHARED=OFF \
             -DwxBUILD_SAMPLES=OFF \
             -DwxBUILD_TESTS=OFF \
@@ -45,17 +85,31 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release
 
       - name: Build wxWidgets core
-        run: ninja -C build wxbase wxcore
+        if: steps.check.outputs.skip != 'true'
+        run: ninja -C /tmp/wxbuild wxbase wxcore
 
-      - name: Commit and push
-        if: ${{ !inputs.dry_run }}
+      - name: Get current date
+        if: steps.check.outputs.skip != 'true'
+        id: date
+        run: echo "today=$(date +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Create source archive
+        if: steps.check.outputs.skip != 'true'
         run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email 'github-actions[bot]@users.noreply.github.com'
-          git add -A
-          if git diff --staged --quiet; then
-            echo "No changes to commit"
-          else
-            git commit -m "Sync from wxWidgets master $(date +%Y-%m-%d)"
-            git push
-          fi
+          tar -cJf /tmp/kwxFetch-source.tar.xz \
+            CMakeLists.txt setup.h.in version-script.in \
+            wx-config-inplace.in wx-config.in \
+            3rdparty/ art/ build/ include/ src/ utils/
+
+      - name: Publish release
+        if: steps.check.outputs.skip != 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ matrix.release_tag }}
+          name: "wxWidgets ${{ steps.upstream.outputs.version }} (${{ matrix.name }}) — ${{ steps.date.outputs.today }}"
+          body: "version=${{ steps.upstream.outputs.version }}\nSynced from wxWidgets ${{ matrix.wx_branch }} on ${{ steps.date.outputs.today }}."
+          files: /tmp/kwxFetch-source.tar.xz
+          prerelease: true
+          make_latest: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
