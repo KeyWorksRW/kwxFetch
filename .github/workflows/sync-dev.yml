@@ -8,6 +8,8 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     strategy:
       fail-fast: false
       matrix:
@@ -51,11 +53,13 @@ jobs:
 
       - name: Checkout kwxFetch
         if: steps.check.outputs.skip != 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Python
         if: steps.check.outputs.skip != 'true'
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
 
       - name: Clone wxWidgets (shallow + submodules)
         if: steps.check.outputs.skip != 'true'
@@ -103,7 +107,7 @@ jobs:
 
       - name: Publish release
         if: steps.check.outputs.skip != 'true'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v2.6.1
         with:
           tag_name: ${{ matrix.release_tag }}
           name: "wxWidgets ${{ steps.upstream.outputs.version }} (${{ matrix.name }}) — ${{ steps.date.outputs.today }}"
