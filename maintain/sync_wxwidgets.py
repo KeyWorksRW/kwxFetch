@@ -111,6 +111,7 @@ ROOT_EXCEPTION_FILES: Set[str] = {
 ALLOWED_NEW_EXTENSIONS: Set[str] = {
     ".cpp", ".cxx", ".cc", ".c", ".h", ".hpp", ".hxx", ".hh", ".mm", ".cmake",
     ".inc",  # Include files
+    ".rc",   # Windows resource files (needed for shared/DLL builds)
     ".xpm",  # X pixmap images (used by wxWidgets)
     ".xml",  # Wayland protocol definitions (src/unix/protocols)
 }
