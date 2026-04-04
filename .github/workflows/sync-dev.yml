@@ -8,8 +8,6 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     strategy:
       fail-fast: false
       matrix:
@@ -107,13 +105,16 @@ jobs:
 
       - name: Publish release
         if: steps.check.outputs.skip != 'true'
-        uses: softprops/action-gh-release@v2.6.1
-        with:
-          tag_name: ${{ matrix.release_tag }}
-          name: "wxWidgets ${{ steps.upstream.outputs.version }} (${{ matrix.name }}) — ${{ steps.date.outputs.today }}"
-          body: "version=${{ steps.upstream.outputs.version }}\nSynced from wxWidgets ${{ matrix.wx_branch }} on ${{ steps.date.outputs.today }}."
-          files: /tmp/kwxFetch-source.tar.xz
-          prerelease: true
-          make_latest: false
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TITLE="wxWidgets ${{ steps.upstream.outputs.version }} (${{ matrix.name }}) — ${{ steps.date.outputs.today }}"
+          NOTES="version=${{ steps.upstream.outputs.version }}
+Synced from wxWidgets ${{ matrix.wx_branch }} on ${{ steps.date.outputs.today }}."
+          TAG="${{ matrix.release_tag }}"
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release edit "$TAG" --title "$TITLE" --notes "$NOTES" --prerelease
+            gh release upload "$TAG" /tmp/kwxFetch-source.tar.xz --clobber
+          else
+            gh release create "$TAG" --title "$TITLE" --notes "$NOTES" --prerelease /tmp/kwxFetch-source.tar.xz
+          fi
