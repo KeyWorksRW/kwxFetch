@@ -109,8 +109,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TITLE="wxWidgets ${{ steps.upstream.outputs.version }} (${{ matrix.name }}) — ${{ steps.date.outputs.today }}"
-          NOTES="version=${{ steps.upstream.outputs.version }}
-Synced from wxWidgets ${{ matrix.wx_branch }} on ${{ steps.date.outputs.today }}."
+          NOTES=$(printf 'version=${{ steps.upstream.outputs.version }}\nSynced from wxWidgets ${{ matrix.wx_branch }} on ${{ steps.date.outputs.today }}.')
           TAG="${{ matrix.release_tag }}"
           if gh release view "$TAG" > /dev/null 2>&1; then
             gh release edit "$TAG" --title "$TITLE" --notes "$NOTES" --prerelease
