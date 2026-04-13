@@ -319,6 +319,81 @@ def sync_files(source: Path, dest: Path, dry_run: bool = False, verbose: bool = 
     return stats
 
 
+def sync_interface_only(source: Path, dest: Path, dry_run: bool = False,
+                        verbose: bool = False) -> dict:
+    """
+    Sync only the interface directory from source to destination.
+
+    No filtering rules are applied — everything under interface/ is copied as-is.
+    """
+    stats = {"added": 0, "updated": 0, "skipped": 0, "unchanged": 0}
+    changes = {"added": [], "updated": []}
+
+    source = source.resolve()
+    dest = dest.resolve()
+
+    interface_src = source / "interface"
+    if not interface_src.exists():
+        print(f"Error: interface directory not found: {interface_src}", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"Syncing interface from: {interface_src}")
+    print(f"Syncing to:             {dest / 'interface'}")
+    print(f"Dry run:                {dry_run}")
+    print()
+
+    for src_file in interface_src.rglob("*"):
+        if not src_file.is_file():
+            continue
+
+        rel_path = src_file.relative_to(source)
+        rel_path_str = normalize_path(str(rel_path))
+
+        dest_file = dest / rel_path
+
+        if dest_file.exists():
+            if files_are_identical(src_file, dest_file):
+                stats["unchanged"] += 1
+                continue
+            stats["updated"] += 1
+            changes["updated"].append(rel_path_str)
+            if not dry_run:
+                dest_file.parent.mkdir(parents=True, exist_ok=True)
+                dest_file.write_bytes(src_file.read_bytes())
+        else:
+            stats["added"] += 1
+            changes["added"].append(rel_path_str)
+            if not dry_run:
+                dest_file.parent.mkdir(parents=True, exist_ok=True)
+                dest_file.write_bytes(src_file.read_bytes())
+
+    # Print summary
+    print("=" * 60)
+    print("Summary (interface only):")
+    print(f"  Added:     {stats['added']}")
+    print(f"  Updated:   {stats['updated']}")
+    print(f"  Unchanged: {stats['unchanged']}")
+    print()
+
+    if changes["added"]:
+        print("Added files:")
+        for f in sorted(changes["added"])[:50]:
+            print(f"  + {f}")
+        if len(changes["added"]) > 50:
+            print(f"  ... and {len(changes['added']) - 50} more")
+        print()
+
+    if changes["updated"]:
+        print("Updated files:")
+        for f in sorted(changes["updated"])[:50]:
+            print(f"  ~ {f}")
+        if len(changes["updated"]) > 50:
+            print(f"  ... and {len(changes['updated']) - 50} more")
+        print()
+
+    return stats
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Sync wxWidgets source to kwxFetch with filtering",
@@ -333,6 +408,9 @@ Examples:
 
   # Verbose output (show skipped files)
   python sync_wxwidgets.py --source /tmp/wxWidgets --dest . --verbose
+
+  # Sync only the interface directory (Doxygen headers)
+  python sync_wxwidgets.py --source /tmp/wxWidgets --dest . --interface-only
 """
     )
 
@@ -356,13 +434,21 @@ Examples:
         action="store_true",
         help="Show skipped files"
     )
+    parser.add_argument(
+        "--interface-only",
+        action="store_true",
+        help="Sync only the interface directory (no filtering, no build files)"
+    )
 
     args = parser.parse_args()
 
     source = Path(args.source)
     dest = Path(args.dest)
 
-    sync_files(source, dest, dry_run=args.dry_run, verbose=args.verbose)
+    if args.interface_only:
+        sync_interface_only(source, dest, dry_run=args.dry_run, verbose=args.verbose)
+    else:
+        sync_files(source, dest, dry_run=args.dry_run, verbose=args.verbose)
 
 
 if __name__ == "__main__":
