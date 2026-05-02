@@ -325,6 +325,7 @@ def sync_interface_only(source: Path, dest: Path, dry_run: bool = False,
     Sync only the interface directory from source to destination.
 
     No filtering rules are applied — everything under interface/ is copied as-is.
+    Additionally copies docs/doxygen/overviews/*.h to interface/wx/overviews/.
     """
     stats = {"added": 0, "updated": 0, "skipped": 0, "unchanged": 0}
     changes = {"added": [], "updated": []}
@@ -342,30 +343,44 @@ def sync_interface_only(source: Path, dest: Path, dry_run: bool = False,
     print(f"Dry run:                {dry_run}")
     print()
 
-    for src_file in interface_src.rglob("*"):
-        if not src_file.is_file():
-            continue
-
-        rel_path = src_file.relative_to(source)
-        rel_path_str = normalize_path(str(rel_path))
-
-        dest_file = dest / rel_path
-
+    def _copy_file(src_file: Path, dest_file: Path, rel_label: str) -> None:
+        """Copy src_file to dest_file, updating stats/changes in the enclosing scope."""
         if dest_file.exists():
             if files_are_identical(src_file, dest_file):
                 stats["unchanged"] += 1
-                continue
+                return
             stats["updated"] += 1
-            changes["updated"].append(rel_path_str)
+            changes["updated"].append(rel_label)
             if not dry_run:
                 dest_file.parent.mkdir(parents=True, exist_ok=True)
                 dest_file.write_bytes(src_file.read_bytes())
         else:
             stats["added"] += 1
-            changes["added"].append(rel_path_str)
+            changes["added"].append(rel_label)
             if not dry_run:
                 dest_file.parent.mkdir(parents=True, exist_ok=True)
                 dest_file.write_bytes(src_file.read_bytes())
+
+    # Copy interface/ tree
+    for src_file in interface_src.rglob("*"):
+        if not src_file.is_file():
+            continue
+        rel_path_str = normalize_path(str(src_file.relative_to(source)))
+        _copy_file(src_file, dest / src_file.relative_to(source), rel_path_str)
+
+    # Copy docs/doxygen/overviews/*.h  ->  interface/wx/overviews/
+    overviews_src = source / "docs" / "doxygen" / "overviews"
+    if overviews_src.exists():
+        overviews_dest = dest / "interface" / "wx" / "overviews"
+        print(f"Syncing overviews from: {overviews_src}")
+        print(f"Syncing to:             {overviews_dest}")
+        print()
+        for src_file in sorted(overviews_src.glob("*.h")):
+            dest_file = overviews_dest / src_file.name
+            rel_label = normalize_path(str(dest_file.relative_to(dest)))
+            _copy_file(src_file, dest_file, rel_label)
+    else:
+        print(f"Warning: overviews directory not found: {overviews_src}", file=sys.stderr)
 
     # Print summary
     print("=" * 60)
