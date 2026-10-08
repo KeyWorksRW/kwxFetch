@@ -141,3 +141,21 @@ jobs:
           else
             gh release create "$TAG" --title "$TITLE" --notes "$NOTES" --prerelease /tmp/kwxFetch-source.tar.xz
           fi
+
+  # The repository is intentionally static, so GitHub's 60-day inactivity timer
+  # would auto-disable this scheduled workflow. An empty commit pushed with the
+  # built-in token counts as repository activity and resets that timer, while
+  # (unlike GITHUB_TOKEN pushes to branches) it does not trigger further runs.
+  keepalive:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Reset 60-day inactivity clock
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit --allow-empty -m "chore: weekly activity (keepalive)"
+          git push
